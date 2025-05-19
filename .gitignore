@@ -1,0 +1,16 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtual env
+venv/
+.env
+
+# IDE files
+.vscode/
+.idea/
+.nvimlog
+
+# OS files
+.DS_Store

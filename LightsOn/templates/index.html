@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Room Light Color Picker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@jaames/iro@5"></script>
+</head>
+<body class="bg-gray-50 flex flex-col items-center justify-center min-h-screen p-4">
+  <h1 class="text-2xl font-bold mb-6">Pick a Color for Your Light</h1>
+
+  <!-- Color wheel container -->
+  <div id="picker" class="mb-4"></div>
+
+  <!-- Selected hex display -->
+  <div class="flex items-center mb-6 space-x-2">
+    <div id="current-color" class="w-8 h-8 rounded-full border"></div>
+    <span id="hex-value" class="font-mono text-lg"></span>
+  </div>
+
+  <!-- Enter button -->
+  <button id="send-btn"
+    class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+    disabled>
+    Enter
+  </button>
+
+  <script>
+    // 1) create the wheel
+    const colorPicker = new iro.ColorPicker("#picker", {
+      width: 240,
+      layout: [
+        { component: iro.ui.Wheel, options: {} }
+      ]
+    });
+
+    const hexDisplay = document.getElementById("hex-value");
+    const colorDot  = document.getElementById("current-color");
+    const sendBtn   = document.getElementById("send-btn");
+
+    // 2) update UI on change
+    colorPicker.on(["color:init", "color:change"], color => {
+      const hex = color.hexString;
+      hexDisplay.textContent = hex;
+      colorDot.style.background = hex;
+      sendBtn.disabled = false;
+    });
+
+    // 3) send to backend when clicked
+    sendBtn.addEventListener("click", async () => {
+      sendBtn.disabled = true;
+      const hex = colorPicker.color.hexString;
+      try {
+        const res = await fetch("/enqueue-color", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ color: hex })
+        });
+        const json = await res.json();
+        if (json.queued) {
+          sendBtn.textContent = "Queued!";
+        } else {
+          throw new Error(json.error || "Unknown error");
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Failed to queue color change.");
+      } finally {
+        setTimeout(() => {
+          sendBtn.textContent = "Enter";
+          sendBtn.disabled = false;
+        }, 2000);
+      }
+    });
+  </script>
+</body>
+</html>

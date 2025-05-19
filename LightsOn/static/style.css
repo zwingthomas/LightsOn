@@ -1,0 +1,46 @@
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: #f3f4f6; /* light gray */
+  color: #1f2937;           /* slate-800 */
+  margin: 0;
+  padding: 0;
+}
+
+/* Centering and spacing */
+#picker {
+  margin: 1.5rem auto;
+  max-width: 280px;
+}
+
+/* Current color indicator */
+#current-color {
+  border: 2px solid #d1d5db; /* gray-300 */
+  transition: background-color 0.2s ease;
+}
+
+/* Hex value text */
+#hex-value {
+  font-family: 'Courier New', monospace;
+  color: #374151;
+}
+
+/* Enter button tweaks */
+#send-btn {
+  transition: background-color 0.2s ease, transform 0.08s ease;
+}
+#send-btn:hover:not(:disabled) {
+  background-color: #2563eb;
+}
+#send-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+#send-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Add a subtle drop shadow to the wheel */
+.iro-wheel {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  border-radius: 9999px; /* fully round */
+}
