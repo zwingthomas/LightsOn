@@ -3,68 +3,58 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Room Light Color Picker</title>
+  <title>Room Light & Camera</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@jaames/iro@5"></script>
 </head>
 <body class="bg-gray-50 flex flex-col items-center justify-center min-h-screen p-4">
-  <h1 class="text-2xl font-bold mb-6">Pick a Color for Your Light</h1>
+  <h1 class="text-2xl font-bold mb-6">Pick a Color & Watch It</h1>
 
-  <!-- Color wheel container -->
+  <!-- Color wheel -->
   <div id="picker" class="mb-4"></div>
-
-  <!-- Selected hex display -->
   <div class="flex items-center mb-6 space-x-2">
     <div id="current-color" class="w-8 h-8 rounded-full border"></div>
     <span id="hex-value" class="font-mono text-lg"></span>
   </div>
-
-  <!-- Enter button -->
   <button id="send-btn"
     class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
     disabled>
     Enter
   </button>
 
-  <script>
-    // 1) create the wheel
-    const colorPicker = new iro.ColorPicker("#picker", {
-      width: 240,
-      layout: [
-        { component: iro.ui.Wheel, options: {} }
-      ]
-    });
+  <!-- Live camera snapshot -->
+  <div class="mt-8 w-full max-w-md">
+    <h2 class="text-xl font-semibold mb-2">Live Preview</h2>
+    <img id="cam" class="w-full rounded shadow-lg"
+         src="/camera/snapshot" alt="Camera snapshot" />
+  </div>
 
+  <script>
+    // Color wheel setup
+    const colorPicker = new iro.ColorPicker("#picker", { width: 240 });
     const hexDisplay = document.getElementById("hex-value");
     const colorDot  = document.getElementById("current-color");
     const sendBtn   = document.getElementById("send-btn");
 
-    // 2) update UI on change
-    colorPicker.on(["color:init", "color:change"], color => {
-      const hex = color.hexString;
-      hexDisplay.textContent = hex;
-      colorDot.style.background = hex;
+    colorPicker.on(["color:init","color:change"], color => {
+      hexDisplay.textContent = color.hexString;
+      colorDot.style.background = color.hexString;
       sendBtn.disabled = false;
     });
 
-    // 3) send to backend when clicked
     sendBtn.addEventListener("click", async () => {
       sendBtn.disabled = true;
       const hex = colorPicker.color.hexString;
       try {
         const res = await fetch("/enqueue-color", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {"Content-Type":"application/json"},
           body: JSON.stringify({ color: hex })
         });
         const json = await res.json();
-        if (json.queued) {
-          sendBtn.textContent = "Queued!";
-        } else {
-          throw new Error(json.error || "Unknown error");
-        }
-      } catch (err) {
-        console.error(err);
+        if (json.queued) sendBtn.textContent = "Queued!";
+        else throw new Error(json.error||"Unknown");
+      } catch {
         alert("Failed to queue color change.");
       } finally {
         setTimeout(() => {
@@ -73,6 +63,12 @@
         }, 2000);
       }
     });
+
+    // Refresh camera snapshot every second
+    setInterval(() => {
+      const img = document.getElementById("cam");
+      img.src = `/camera/snapshot?${Date.now()}`;
+    }, 1000);
   </script>
 </body>
 </html>
