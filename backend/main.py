@@ -89,7 +89,8 @@ async def set_color(payload: ColorPayload, request: Request):
     await verify_cloud_task(request)
 
     # convert hex → xy
-    x, y = hex_to_xy(payload.color.lstrip("#"))
+    r, g, b = hex_to_rgb(payload.color.lstrip("#"))
+    x, y = rgb_to_xy(r, g, b)
 
     bridge = os.environ["HUE_BRIDGE_IP"]
     user   = os.environ["HUE_USERNAME"]

@@ -8,7 +8,7 @@ app = Flask(__name__, static_folder="static", template_folder="templates")
 PROJECT  = os.environ["GOOGLE_CLOUD_PROJECT"]
 QUEUE    = "color-changes"
 LOCATION = "us-central1"
-TARGET   = "https://light-worker-<your-cloud-run-url>/set-color"
+TARGET   = "https://135c-24-179-141-87.ngrok-free.app/set-color"
 
 # set up Cloud Tasks client
 client, _ = google_auth_default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
