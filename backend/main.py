@@ -13,6 +13,9 @@ import aiohttp
 import asyncio
 from eufy_security import async_login
 from dotenv import load_dotenv
+import subprocess
+import shlex
+import threading
 
 load_dotenv()
 
@@ -27,9 +30,7 @@ HOMEBASE_IP   = os.environ["EUFY_HOMEBASE_IP"]
 HOMEBASE_PORT = os.environ.get("EUFY_HOMEBASE_PORT", "80")
 STATION_ID = os.getenv("EUFY_STATION_ID")
 CAMERA_ID  = os.getenv("EUFY_CAMERA_ID")
-
-LOGIN_URL = f"http://{HOMEBASE_IP}:{HOMEBASE_PORT}/app/v2/passport/login"
-RTSP_URL  = f"http://{HOMEBASE_IP}:{HOMEBASE_PORT}/app/v2/camera/setting/nas/rtsp"
+RTSP_URL = os.environ["EUFY_RTSP_URL"]
 
 # -----------------------------------------------------------------------------
 # Pydantic Model
@@ -105,22 +106,26 @@ def rgb_to_xy(r: float, g: float, b: float) -> tuple[float,float]:
         return 0.0, 0.0
     return X / total, Y / total
 
+
 def frame_reader(rtsp_url: str):
     global cap, latest_frame, open_time
 
     while True:
         now = time.time()
         # If we haven’t opened yet, or the stream died, or it's been >150s, reopen
-        if cap is None or not cap.isOpened() or (now - open_time) > 150:
+        if cap is None or not cap.isOpened() or (now - open_time) > 30:
             if cap:
                 cap.release()
+            os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = (
+                "rtsp_transport;tcp|rtsp_flags;prefer_tcp|stimeout;5000000"
+            )
             cap = cv2.VideoCapture(rtsp_url, cv2.CAP_FFMPEG)
-            open_time = now
             if not cap.isOpened():
                 print(f"[frame_reader] cannot open RTSP {rtsp_url}")
                 time.sleep(5)
                 continue
             else:
+                open_time = now
                 print(f"[frame_reader] opened RTSP stream at {rtsp_url}")
 
         # Read one frame
@@ -136,6 +141,8 @@ def frame_reader(rtsp_url: str):
         # Throttle loop (~30 FPS max)
         time.sleep(0.03)
 
+
+
 # -----------------------------------------------------------------------------
 # App & handler
 # -----------------------------------------------------------------------------
@@ -144,7 +151,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://lightson-460317.uc.r.appspot.com"],
+    allow_origins=["https://zwingerbackend.com"],
     allow_methods=["GET","POST"],
     allow_headers=["*"],
 )
@@ -156,13 +163,11 @@ frame_lock = threading.Lock()
 
 @app.on_event("startup")
 def startup_event():
-    rtsp_url = os.environ.get("EUFY_RTSP_URL")
-    if not rtsp_url:
+    if not RTSP_URL:
         print("EUFY_RTSP_URL not configured")
         return
-    thread = threading.Thread(target=frame_reader, args=(rtsp_url,), daemon=True)
+    thread = threading.Thread(target=frame_reader, args=(RTSP_URL,), daemon=True)
     thread.start()
-    print("Started RTSP frame reader thread")
 
 @app.post("/set-color")
 async def set_color(payload: ColorPayload, request: Request):
@@ -216,28 +221,6 @@ async def cloud_login() -> str:
         data = resp.json().get("data") or {}
         return data["accessToken"]  # Bearer token
 
-@app.post("/camera/rtsp")
-async def toggle_rtsp(toggle: RTSPToggle):
-    token = await cloud_login()
-    async with httpx.AsyncClient(
-        headers={
-          "Authorization": f"Bearer {token}",
-          "Content-Type":  "application/json",
-        },
-        timeout=10
-    ) as client:
-        try:
-            # this is the same endpoint the Eufy app hits
-            resp = await client.post(
-                "https://mysecurity.eufylife.com/api/v2.0/camera/setting/nas/rtsp",
-                json={
-                  "station_id": STATION_ID,
-                  "device_sn":  CAMERA_ID,
-                  "enabled":    toggle.enabled
-                }
-            )
-            resp.raise_for_status()
-        except httpx.HTTPStatusError as e:
-            raise HTTPException(502, f"Cloud RTSP toggle failed: {e.response.text}")
-    return {"rtsp_enabled": toggle.enabled}
 
+
+    

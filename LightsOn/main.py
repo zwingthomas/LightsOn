@@ -1,6 +1,6 @@
 import os, json
 import requests
-from flask import Flask, request, Response, jsonify, render_template
+from flask import Flask, request, Response, jsonify, render_template, abort
 from google.cloud import tasks_v2
 from google.auth import default as google_auth_default
 
@@ -9,7 +9,7 @@ app = Flask(__name__, static_folder="static", template_folder="templates")
 PROJECT  = os.environ["GOOGLE_CLOUD_PROJECT"]
 QUEUE    = "color-changes"
 LOCATION = "us-central1"
-TARGET   = "https://135c-24-179-141-87.ngrok-free.app"
+TARGET   = "https://zwingerbackend.com"
 
 # set up Cloud Tasks client
 client, _ = google_auth_default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
@@ -34,7 +34,10 @@ def enqueue_color():
             "url": TARGET + "/set-color",
             "headers": {"Content-Type": "application/json"},
             "body": payload,
-            "oidc_token": {"service_account_email": f"{PROJECT}@appspot.gserviceaccount.com"},
+            "oidc_token": {
+                "service_account_email": f"{PROJECT}@appspot.gserviceaccount.com",
+                "audience": "https://zwingerbackend.com"
+            },
         }
     }
     tasks.create_task(parent=parent, task=task)
