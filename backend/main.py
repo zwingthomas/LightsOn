@@ -4,12 +4,14 @@ import time
 import threading
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response 
+from fastapi.responses import Response, JSONResponse 
 from pydantic import BaseModel, constr
 from google.auth.transport import requests as grequests
 from google.oauth2 import id_token
 import httpx
-import asyncio 
+import aiohttp
+import asyncio
+from eufy_security import async_login
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -20,6 +22,15 @@ latest_frame = None
 frame_lock = threading.Lock()
 open_time = 0.0
 
+# Vars for RTSP toggle
+HOMEBASE_IP   = os.environ["EUFY_HOMEBASE_IP"]
+HOMEBASE_PORT = os.environ.get("EUFY_HOMEBASE_PORT", "80")
+STATION_ID = os.getenv("EUFY_STATION_ID")
+CAMERA_ID  = os.getenv("EUFY_CAMERA_ID")
+
+LOGIN_URL = f"http://{HOMEBASE_IP}:{HOMEBASE_PORT}/app/v2/passport/login"
+RTSP_URL  = f"http://{HOMEBASE_IP}:{HOMEBASE_PORT}/app/v2/camera/setting/nas/rtsp"
+
 # -----------------------------------------------------------------------------
 # Pydantic Model
 # -----------------------------------------------------------------------------
@@ -29,6 +40,9 @@ class ColorPayload(BaseModel):
     color: constr(
         pattern=r'^(#(?:[0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})|[a-z]+)$'
     )
+
+class RTSPToggle(BaseModel):
+    enabled: bool
 
 # -----------------------------------------------------------------------------
 # Helpers: token verification & color conversion
@@ -122,8 +136,6 @@ def frame_reader(rtsp_url: str):
         # Throttle loop (~30 FPS max)
         time.sleep(0.03)
 
-
-
 # -----------------------------------------------------------------------------
 # App & handler
 # -----------------------------------------------------------------------------
@@ -189,3 +201,43 @@ def camera_snapshot():
         raise HTTPException(500, "Encoding error")
 
     return Response(content=jpeg.tobytes(), media_type="image/jpeg")
+
+async def cloud_login() -> str:
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.post(
+            "https://mysecurity.eufylife.com/api/v1/passport/login",
+            json={
+                "email":       os.environ["EUFY_USER"],
+                "password":    os.environ["EUFY_PASS"],
+                "country_code": 1,
+            },
+        )
+        resp.raise_for_status()
+        data = resp.json().get("data") or {}
+        return data["accessToken"]  # Bearer token
+
+@app.post("/camera/rtsp")
+async def toggle_rtsp(toggle: RTSPToggle):
+    token = await cloud_login()
+    async with httpx.AsyncClient(
+        headers={
+          "Authorization": f"Bearer {token}",
+          "Content-Type":  "application/json",
+        },
+        timeout=10
+    ) as client:
+        try:
+            # this is the same endpoint the Eufy app hits
+            resp = await client.post(
+                "https://mysecurity.eufylife.com/api/v2.0/camera/setting/nas/rtsp",
+                json={
+                  "station_id": STATION_ID,
+                  "device_sn":  CAMERA_ID,
+                  "enabled":    toggle.enabled
+                }
+            )
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            raise HTTPException(502, f"Cloud RTSP toggle failed: {e.response.text}")
+    return {"rtsp_enabled": toggle.enabled}
+
