@@ -2,19 +2,16 @@ import os
 import cv2
 import time
 import threading
+import random
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response, JSONResponse 
+from fastapi.responses import Response
 from pydantic import BaseModel, constr
 from google.auth.transport import requests as grequests
 from google.oauth2 import id_token
 import httpx
-import aiohttp
 import asyncio
-from eufy_security import async_login
 from dotenv import load_dotenv
-import subprocess
-import shlex
 import threading
 
 load_dotenv()
@@ -32,6 +29,11 @@ STATION_ID = os.getenv("EUFY_STATION_ID")
 CAMERA_ID  = os.getenv("EUFY_CAMERA_ID")
 RTSP_URL = os.environ["EUFY_RTSP_URL"]
 
+# Simon Says
+current_sequence: list[str] = []   # ["red", "green", "blue", "yellow"]
+_game_lock        = asyncio.Lock() # protects current_sequence / light playback
+_round_playing    = False          # True while LEDs are cycling the pattern
+
 # -----------------------------------------------------------------------------
 # Pydantic Model
 # -----------------------------------------------------------------------------
@@ -44,6 +46,9 @@ class ColorPayload(BaseModel):
 
 class RTSPToggle(BaseModel):
     enabled: bool
+
+class SequenceSubmission(BaseModel):
+    sequence: list[str]
 
 # -----------------------------------------------------------------------------
 # Helpers: token verification & color conversion
@@ -106,6 +111,42 @@ def rgb_to_xy(r: float, g: float, b: float) -> tuple[float,float]:
         return 0.0, 0.0
     return X / total, Y / total
 
+# Simon Says
+async def _play_sequence():
+    global _round_playing
+    async with _game_lock:
+        seq = list(current_sequence)   # copy so it doesn’t change mid-play
+        _round_playing = True
+
+    try:
+        for color in seq:
+            await hue_set_color(color)
+            await asyncio.sleep(2)
+    finally:
+        _round_playing = False
+
+# Quick feedback for Simon Says
+async def _flash(color: str, times: int = 2, interval: float = .4):
+    for _ in range(times):
+        await hue_set_color(color)
+        await asyncio.sleep(interval)
+        await hue_set_color("yellow")   # neutral dim-yellow between flashes
+        await asyncio.sleep(interval)
+
+# Simon Says
+async def hue_set_color(hex_str: str = None):
+
+    r, g, b       = hex_to_rgb(hex_str.lstrip("#"))
+    x, y          = rgb_to_xy(r, g, b)
+    payload       = {"on": True, "bri": 254, "xy": [x, y]}
+
+    async with httpx.AsyncClient(timeout=5) as client:
+        await asyncio.gather(*[
+            client.put(
+                f"http://{os.environ["HUE_BRIDGE_IP"]}/api/{os.environ["HUE_USERNAME"]}/lights/{lid}/state",
+                json=payload
+            ) for lid in os.environ["HUE_LIGHT_IDS"].split(",")
+        ])
 
 def frame_reader(rtsp_url: str):
     global cap, latest_frame, open_time
@@ -171,22 +212,18 @@ def startup_event():
 
 @app.post("/set-color")
 async def set_color(payload: ColorPayload, request: Request):
+
     await verify_cloud_task(request)
 
     # convert hex → xy
     r, g, b = hex_to_rgb(payload.color.lstrip("#"))
     x, y = rgb_to_xy(r, g, b)
 
-    bridge = os.environ["HUE_BRIDGE_IP"]
-    user   = os.environ["HUE_USERNAME"]
-    # split the comma-delimited list of IDs
-    light_ids = os.environ["HUE_LIGHT_IDS"].split(",")
-
     body = {"on": True, "bri": 254, "xy": [x, y]}
 
     async with httpx.AsyncClient(timeout=5.0) as client:
-        for lid in light_ids:
-            url = f"http://{bridge}/api/{user}/lights/{lid}/state"
+        for lid in os.environ["HUE_LIGHT_IDS"].split(","):
+            url = f"http://{os.environ["HUE_BRIDGE_IP"]}/api/{os.environ["HUE_USERNAME"]}/lights/{lid}/state"
             resp = await client.put(url, json=body)
             resp.raise_for_status()
 
@@ -207,19 +244,61 @@ def camera_snapshot():
 
     return Response(content=jpeg.tobytes(), media_type="image/jpeg")
 
-async def cloud_login() -> str:
-    async with httpx.AsyncClient(timeout=10) as client:
-        resp = await client.post(
-            "https://mysecurity.eufylife.com/api/v1/passport/login",
-            json={
-                "email":       os.environ["EUFY_USER"],
-                "password":    os.environ["EUFY_PASS"],
-                "country_code": 1,
-            },
-        )
-        resp.raise_for_status()
-        data = resp.json().get("data") or {}
-        return data["accessToken"]  # Bearer token
+@app.get("/simon/round")
+async def simon_round():
+    """
+    1) If no game yet, start with one random color.
+    2) Kick off background task to play the pattern (if not already playing).
+    3) Return `{"length": N}` for the front-end timer logic.
+    """
+    global current_sequence
+
+    async with _game_lock:
+        if not current_sequence:                      # new game
+            COLOR_HEX = {
+                "red":    "#ff0000",
+                "blue":   "#0000ff",
+                "green":  "#00ff00",
+                "yellow": "#ffff00",
+            }
+            current_sequence = [random.choice(list(COLOR_HEX))]
+        length = len(current_sequence)
+        # Launch player if idle
+        if not _round_playing:
+            asyncio.create_task(_play_sequence())
+
+    return {"length": length}
+
+
+@app.post("/simon/check")
+async def check_sequence(submission: SequenceSubmission):
+    """
+    Compare player’s input against the authoritative sequence.
+    * On success: flash green, extend the sequence, schedule next playback.
+    * On failure: flash red, reset to a new single-color sequence.
+    """
+    global current_sequence
+
+    async with _game_lock:
+        correct = submission.sequence == current_sequence
+
+    if correct:
+        await _flash("green")
+        async with _game_lock:
+            # add ONE new random color (could duplicate last – classic Simon)
+            current_sequence.append(random.choice(list(COLOR_HEX)))
+            # queue the next round playback
+            if not _round_playing:
+                asyncio.create_task(_play_sequence())
+    else:
+        await _flash("red")
+        async with _game_lock:
+            # fresh game with single random color
+            current_sequence = [random.choice(list(COLOR_HEX))]
+            if not _round_playing:
+                asyncio.create_task(_play_sequence())
+
+    return {"correct": correct}
 
 
 

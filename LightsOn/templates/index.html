@@ -70,5 +70,115 @@
       img.src = `/camera/snapshot?${Date.now()}`;
     }, 1000);
   </script>
+
+  <div id="simon-section" class="mt-8">
+    <button id="start-simon" class="bg-yellow-500 px-4 py-2 rounded text-white">Start Simon Says</button>
+    <div id="queue-controls" class="hidden">
+      <input type="text" id="player-name" placeholder="Enter name" class="border p-2" />
+      <button id="queue-btn" class="bg-green-600 px-4 py-2 text-white rounded">Queue Up</button>
+    </div>
+    <div id="simon-game" class="hidden">
+      <!-- ==== SIMON SAYS BOARD ==== -->
+      <style>
+        #simon-board {
+          position: relative; width: 300px; height: 300px;
+          border-radius: 50%; overflow: hidden;
+        }
+        .simon-btn {position:absolute;width:50%;height:50%;opacity:.9;cursor:pointer;transition:opacity .2s}
+        .simon-btn:hover{opacity:1}
+        #red    {background:red;    top:0;    left:0;    border-top-left-radius:100%}
+        #blue   {background:blue;   top:0;    right:0;   border-top-right-radius:100%}
+        #yellow {background:yellow; bottom:0; right:0;   border-bottom-right-radius:100%}
+        #green  {background:green;  bottom:0; left:0;    border-bottom-left-radius:100%}
+      </style>
+
+      <h2 class="text-xl font-semibold mt-8">Simon Says</h2>
+      <div id="simon-board" class="mx-auto">
+        <div id="red"    class="simon-btn" data-color="red"></div>
+        <div id="blue"   class="simon-btn" data-color="blue"></div>
+        <div id="yellow" class="simon-btn" data-color="yellow"></div>
+        <div id="green"  class="simon-btn" data-color="green"></div>
+      </div>
+      
+      <div id="simon-board" class="mx-auto my-4">
+        <div id="red" class="simon-btn" data-color="red"></div>
+        <div id="blue" class="simon-btn" data-color="blue"></div>
+        <div id="yellow" class="simon-btn" data-color="yellow"></div>
+        <div id="green" class="simon-btn" data-color="green"></div>
+      </div>
+
+      <script>
+        /* -------- Simon-Says state -------- */
+        let expectedLen   = 0;        // fetched from server each round
+        let inputSeq      = [];
+        let idleTimer     = null;
+        const IDLE_LIMIT  = 5000;     // 5-second timeout
+        
+        /* ask Flask → FastAPI how long this round is */
+        async function refreshRoundLength() {
+          const res  = await fetch("/simon/round");
+          const json = await res.json();
+          expectedLen = json.length || 0;
+          inputSeq = [];
+          resetIdleTimer();
+        }
+        
+        /* send the user’s sequence to Flask → FastAPI for checking */
+        async function validateSequence() {
+          try {
+            const res  = await fetch("/simon/submit", {
+              method:"POST",
+              headers:{"Content-Type":"application/json"},
+              body:JSON.stringify({sequence: inputSeq})
+            });
+            const {correct} = await res.json();
+            alert(correct ? "✅  Correct!" : "❌  Wrong sequence!");
+          } catch {
+            alert("Server error – try again.");
+          } finally {
+            await refreshRoundLength();   // prepare next round
+          }
+        }
+        
+        /* called every click */
+        function handleSimonClick(color) {
+          inputSeq.push(color);
+        
+          if (inputSeq.length > expectedLen) {
+            alert("❌  Too many inputs!");
+            refreshRoundLength();
+            return;
+          }
+        
+          resetIdleTimer();
+        
+          /* finished exactly on time → check with server */
+          if (inputSeq.length === expectedLen) {
+            validateSequence();
+          }
+        }
+        
+        function resetIdleTimer() {
+          clearTimeout(idleTimer);
+          idleTimer = setTimeout(() => {
+            if (inputSeq.length < expectedLen) {
+              alert("❌  Too slow!");
+              refreshRoundLength();
+            }
+          }, IDLE_LIMIT);
+        }
+        
+        /* attach listeners */
+        document.querySelectorAll(".simon-btn").forEach(btn=>{
+          btn.addEventListener("click",()=>handleSimonClick(btn.dataset.color));
+        });
+        
+        /* kick off the first round */
+        refreshRoundLength();
+      </script>
+    </div>
+    <div id="viewer-notice" class="hidden text-gray-600 mt-4">Game in progress. You're in viewer mode.</div>
+  </div>
+
 </body>
 </html>

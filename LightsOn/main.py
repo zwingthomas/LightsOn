@@ -63,3 +63,44 @@ def camera_snapshot():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
+
+
+# SIMON SAYS ROUTES
+
+@app.post("/simon/submit")
+def simon_submit():
+    """
+    Proxy the player's color sequence to the FastAPI worker
+    and return whether it matches the current round.
+    """
+    data = request.get_json(force=True, silent=True) or {}
+    seq  = data.get("sequence")
+    if not isinstance(seq, list):
+        return {"error": "sequence must be a list"}, 400
+
+    try:
+        resp = requests.post(TARGET + "/simon/check",
+                             json={"sequence": seq},
+                             timeout=5)
+        resp.raise_for_status()
+    except requests.RequestException as e:
+        app.logger.error(f"Error validating sequence: {e}")
+        return {"error": "backend unreachable"}, 502
+
+    return resp.json(), resp.status_code
+
+
+@app.get("/simon/round")
+def simon_round():
+    """
+    Ask the FastAPI worker how many colors are in the current round.
+    Returns: {"length": <int>}
+    """
+    try:
+        resp = requests.get(TARGET + "/simon/round", timeout=5)
+        resp.raise_for_status()
+    except requests.RequestException as e:
+        app.logger.error(f"Error fetching round info: {e}")
+        return {"error": "backend unreachable"}, 502
+
+    return resp.json(), resp.status_code
