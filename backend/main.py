@@ -22,13 +22,6 @@ latest_frame = None
 frame_lock = threading.Lock()
 open_time = 0.0
 
-# Vars for RTSP toggle
-HOMEBASE_IP   = os.environ["EUFY_HOMEBASE_IP"]
-HOMEBASE_PORT = os.environ.get("EUFY_HOMEBASE_PORT", "80")
-STATION_ID = os.getenv("EUFY_STATION_ID")
-CAMERA_ID  = os.getenv("EUFY_CAMERA_ID")
-RTSP_URL = os.environ["EUFY_RTSP_URL"]
-
 # Simon Says
 current_sequence: list[str] = []   # ["red", "green", "blue", "yellow"]
 _game_lock        = asyncio.Lock() # protects current_sequence / light playback
@@ -138,7 +131,7 @@ async def hue_set_color(hex_str: str = None):
 
     r, g, b       = hex_to_rgb(hex_str.lstrip("#"))
     x, y          = rgb_to_xy(r, g, b)
-    payload       = {"on": True, "bri": 254, "xy": [x, y]}
+    payload       = {"on": True, "bri": 50, "xy": [x, y]}
 
     async with httpx.AsyncClient(timeout=5) as client:
         await asyncio.gather(*[
@@ -148,27 +141,21 @@ async def hue_set_color(hex_str: str = None):
             ) for lid in os.environ["HUE_LIGHT_IDS"].split(",")
         ])
 
-def frame_reader(rtsp_url: str):
-    global cap, latest_frame, open_time
+def frame_reader(source: int):
+    global cap, latest_frame
 
     while True:
-        now = time.time()
-        # If we haven’t opened yet, or the stream died, or it's been >150s, reopen
-        if cap is None or not cap.isOpened() or (now - open_time) > 30:
-            if cap:
-                cap.release()
-            os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = (
-                "rtsp_transport;tcp|rtsp_flags;prefer_tcp|stimeout;5000000"
-            )
-            cap = cv2.VideoCapture(rtsp_url, cv2.CAP_FFMPEG)
+        # Open camera feed if feed is closed or broken
+        if cap is None or not cap.isOpened():
+            cap = cv2.VideoCapture(source, cv2.CAP_V4L2)
             if not cap.isOpened():
-                print(f"[frame_reader] cannot open RTSP {rtsp_url}")
-                time.sleep(5)
+                print("[frame_reader] cannot open /dev/video0")
+                time.sleep(2)
                 continue
-            else:
-                open_time = now
-                print(f"[frame_reader] opened RTSP stream at {rtsp_url}")
-
+            # Remove if you have a nicer webcam
+            cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
+            cap.set(cv2.CAP_PROP_EXPOSURE, 0.04)
+            cap.set(cv2.CAP_PROP_GAIN, 0)
         # Read one frame
         ret, frame = cap.read()
         if ret and frame is not None:
@@ -204,10 +191,8 @@ frame_lock = threading.Lock()
 
 @app.on_event("startup")
 def startup_event():
-    if not RTSP_URL:
-        print("EUFY_RTSP_URL not configured")
-        return
-    thread = threading.Thread(target=frame_reader, args=(RTSP_URL,), daemon=True)
+    device = int(os.getenv("WEBCAM", "0"))
+    thread = threading.Thread(target=frame_reader, args=(device,), daemon=True)
     thread.start()
 
 @app.post("/set-color")
@@ -219,7 +204,7 @@ async def set_color(payload: ColorPayload, request: Request):
     r, g, b = hex_to_rgb(payload.color.lstrip("#"))
     x, y = rgb_to_xy(r, g, b)
 
-    body = {"on": True, "bri": 254, "xy": [x, y]}
+    body = {"on": True, "bri": 127, "xy": [x, y]}
 
     async with httpx.AsyncClient(timeout=5.0) as client:
         for lid in os.environ["HUE_LIGHT_IDS"].split(","):

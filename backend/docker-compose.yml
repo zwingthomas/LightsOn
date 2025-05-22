@@ -1,0 +1,9 @@
+services:
+  backend:
+    build: .
+    devices:
+      - /dev/video0:/dev/video0
+    group_add:
+      - video
+    ports:
+      - "8080:8080"
