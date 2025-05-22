@@ -143,7 +143,7 @@ async def hue_set_color(hex_str: str = None):
     async with httpx.AsyncClient(timeout=5) as client:
         await asyncio.gather(*[
             client.put(
-                f"http://{os.environ["HUE_BRIDGE_IP"]}/api/{os.environ["HUE_USERNAME"]}/lights/{lid}/state",
+                f"http://{os.environ['HUE_BRIDGE_IP']}/api/{os.environ['HUE_USERNAME']}/lights/{lid}/state",
                 json=payload
             ) for lid in os.environ["HUE_LIGHT_IDS"].split(",")
         ])
@@ -192,7 +192,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://zwingerbackend.com"],
+    allow_origins=["https://lightson-460317.uc.r.appspot.com/"],
     allow_methods=["GET","POST"],
     allow_headers=["*"],
 )
@@ -223,11 +223,11 @@ async def set_color(payload: ColorPayload, request: Request):
 
     async with httpx.AsyncClient(timeout=5.0) as client:
         for lid in os.environ["HUE_LIGHT_IDS"].split(","):
-            url = f"http://{os.environ["HUE_BRIDGE_IP"]}/api/{os.environ["HUE_USERNAME"]}/lights/{lid}/state"
+            url = f"http://{os.environ['HUE_BRIDGE_IP']}/api/{os.environ['HUE_USERNAME']}/lights/{lid}/state"
             resp = await client.put(url, json=body)
             resp.raise_for_status()
 
-    return {"status": "ok", "color": payload.color, "updated": light_ids}
+    return {"status": "ok", "color": payload.color, "updated": {os.environ['HUE_LIGHT_IDS']}}
 
 @app.get("/camera/snapshot")
 def camera_snapshot():
