@@ -103,42 +103,6 @@ def rgb_to_xy(r: float, g: float, b: float) -> tuple[float,float]:
         return 0.0, 0.0
     return X / total, Y / total
 
-# Simon Says
-async def _play_sequence():
-    global _round_playing
-    async with _game_lock:
-        seq = list(current_sequence)   # copy so it doesn’t change mid-play
-        _round_playing = True
-
-    try:
-        for color in seq:
-            await hue_set_color(color)
-            await asyncio.sleep(2)
-    finally:
-        _round_playing = False
-
-# Quick feedback for Simon Says
-async def _flash(color: str, times: int = 2, interval: float = .4):
-    for _ in range(times):
-        await hue_set_color(color)
-        await asyncio.sleep(interval)
-        await hue_set_color("yellow")   # neutral dim-yellow between flashes
-        await asyncio.sleep(interval)
-
-# Simon Says
-async def hue_set_color(hex_str: str = None):
-
-    r, g, b       = hex_to_rgb(hex_str.lstrip("#"))
-    x, y          = rgb_to_xy(r, g, b)
-    payload       = {"on": True, "bri": 50, "xy": [x, y]}
-
-    async with httpx.AsyncClient(timeout=5) as client:
-        await asyncio.gather(*[
-            client.put(
-                f"http://{os.environ['HUE_BRIDGE_IP']}/api/{os.environ['HUE_USERNAME']}/lights/{lid}/state",
-                json=payload
-            ) for lid in os.environ["HUE_LIGHT_IDS"].split(",")
-        ])
 
 def frame_reader(source: int):
     global cap, latest_frame
@@ -226,3 +190,7 @@ def camera_snapshot():
         raise HTTPException(500, "Encoding error")
 
     return Response(content=jpeg.tobytes(), media_type="image/jpeg", headers={"Connection": "close"})
+
+@app.get("/health")
+def health():
+    return {"ok": True}
