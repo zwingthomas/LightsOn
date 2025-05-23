@@ -176,9 +176,10 @@ gcloud app browse
 ⸻
 
 # Contributing
-	1.	Fork it
-	2.	Create a feature branch
-	3.	Submit a pull request
-    4.  Leave a Star
+
+###	1.	Fork it
+###	2.	Create a feature branch
+###	3.	Submit a pull request
+### 4.  Leave a Star
 
 Please open an issue first if you’re planning a major change.
