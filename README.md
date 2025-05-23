@@ -1,27 +1,20 @@
-[LightsOn](https://lightson-460317.uc.r.appspot.com/)
+# [LightsOn](https://lightson-460317.uc.r.appspot.com/)
 
 LightsOn is a simple web app that lets you pick colors for your Philips Hue lights and view a live webcam snapshot, all in real time. The frontend is built with Flask + JavaScript, and the backend is a FastAPI service running on uvicorn inside Docker. Cloudflare Tunnel (Argo Tunnel) forwards requests from your public domain to your local machine.
 
 
 ⸻
 
-Table of Contents
-	•	Features
-	•	Architecture
-	•	Prerequisites
-	•	Installation
-	•	Configuration
-	•	Running Locally
-	•	Backend
-	•	Frontend
-	•	Deployment
-	•	Environment Variables
-	•	Contributing
-	•	License
+# Table of Contents
+- [Features](#features)
+- [Architecture](#architecture)
+- [Prerequisites](#prerequisites)
+- [Configuration and Deployment](#configuration-and-deployment)
+- [Contributing](#contributing)
 
 ⸻
 
-Features
+# Features
 	•	🔆 Pick any color via an interactive color wheel
 	•	⏱️ Color change commands are enqueued via Google Cloud Tasks and dispatched securely to Cloudflare Edge
 	•	💡 Send color changes to your Philips Hue bridge via FastAPI
@@ -31,73 +24,33 @@ Features
 
 ⸻
 
-Architecture
+# Architecture
 
-[Browser]                         
-   │                              
-   │ 1. User clicks “Enter”       
-   ▼                              
-Flask Frontend (App Engine)      
-   │                              
-   │ 2. Enqueue color task or request camera still frame        
-   ▼                              
-Google Cloud Tasks Queue (if /set-color, else skip to 4.)        
-   │ (configured dispatch rate)   
-   │                              
-   ▼                              
-Cloudflare Edge → Argo Tunnel    
-   │                              
-   │ 3. POST /set-color            
-   ▼                              
-FastAPI (uvicorn @ localhost:8080)
-   │                              
-   ├─▶ /set-color → Hue Bridge    
-   │                              
-   └─▶ /camera/snapshot → OpenCV   
-      camera reader thread        
-
-	•	1. Flask frontend enqueues color-change tasks.
-	•	2. Cloud Tasks reliably delivers HTTP requests (rate-limited and centralized so no color is skipped) to the backend via Cloudflare Tunnel.
-	•	3. FastAPI updates Hue lights or returns a JPEG snapshot.
+graph TD
+  A[User (Browser)] -->|1. Clicks 'Enter'| B[Flask Frontend (App Engine)]
+  B -->|2a. Enqueues /set-color| C[Cloud Tasks Queue]
+  B -->|2b. Requests /camera/snapshot| E
+  C -->|3. Task dispatched to backend| D[Cloudflare Edge → Argo Tunnel]
+  D -->|4. POST /set-color| F[FastAPI Backend (uvicorn)]
+  E[Cloudflare Edge → Tunnel to home network] -->|GET /camera/snapshot| F
+  F -->|Updates Hue Bridge| G[Hue Light State]
+  F -->|Returns JPEG Frame| H[OpenCV Camera Reader]
 
 ⸻
 
-Prerequisites
+# Prerequisites
 	•	Python 3.9+
 	•	Docker & Docker Compose (for backend)
 	•	cloudflared (Cloudflare Tunnel)
 	•	Google Cloud SDK (for Cloud Tasks & App Engine)
 	•	A Philips Hue Bridge on your LAN
-	•	A webcam at /dev/video0 (or another device)
+	•	A webcam at /dev/videoX (or another device)
 
 ⸻
 
-Installation
-	1.	Clone the repo
+# Configuration and Deployment
 
-git clone https://github.com/zwingthomas/LightsOn.git
-cd LightsOn
-
-
-	2.	Backend dependencies
-
-cd backend
-pip install --upgrade pip
-pip install -r requirements.txt
-
-
-	3.	Frontend dependencies
-
-cd ../LightsOn
-pip install Flask requests google-cloud-tasks
-
-
-
-⸻
-
-Configuration
-
-Create a .env file in backend/ with:
+### Create a .env file in backend/ with:
 
 WEBCAM=</dev/videoN-index-for-OpenCV-(default-0)>
 HUE_BRIDGE_IP=<On-your-local-network>
@@ -106,13 +59,13 @@ HUE_LIGHT_IDS=<steps-below>
 SERVICE_URL=<cloudflare-dns>
 TASK_SERVICE_ACCOUNT_EMAIL=<your-service-account-email-for-gcp-queue>
 
-In LightsOn/main.py, set your Google Cloud project:
+In LightsOn/main.py, set (skip if creating later) your Google Cloud project:
 
 export GOOGLE_CLOUD_PROJECT=<your-project-id>
 
 ____
 
-Getting your Hue light IDs, Bridge IP, and Username
+### Getting your Hue light IDs, Bridge IP, and Username
 
 1. Get your Hue Bridge IP
 ```
@@ -145,19 +98,22 @@ Returns something like this:
 ⸻
 
 
-# Build & run backend with Docker Compose (exposes :8080)
+### Build & run backend w Docker Compose
+```
 docker-compose up --build
+```
 
-# Stand up cloudflared and the following command after creating a tunnel [[GUIDE]](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/get-started/)
+### Stand up cloudflared and the following command after creating a tunnel [[GUIDE]](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/get-started/)
+
 Run the tunnel with
 ```
 cloudflared tunnel --loglevel debug --config ~/.cloudflared/config.yml run <tunnel-id>
 ```
 
-~/.cloudflared/config.yml
+Create file like cloudflared/config.yml
 ```
-tunnel: 17223237-3bc2-4bdb-b4be-0d5b027ba881
-credentials-file: ~/.cloudflared/17223237-3bc2-4bdb-b4be-0d5b027ba881.json
+tunnel: XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
+credentials-file: ~/.cloudflared/XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX.json
 ingress:
   - hostname: zwingerbackend.com
     path: /camera/snapshot
@@ -176,7 +132,7 @@ no-quic: true
 protocol: http2
 ```
 
-# Get running with Google App Engine
+### Get running with Google App Engine
 Create project
 ```
 gcloud projects create YOUR_PROJECT_ID --name="Your Project Name"
@@ -207,7 +163,7 @@ gcloud app browse
 
 ⸻
 
-Contributing
+# Contributing
 	1.	Fork it
 	2.	Create a feature branch
 	3.	Submit a pull request
