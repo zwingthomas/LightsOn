@@ -26,17 +26,27 @@ LightsOn is a simple web app that lets you pick colors for your Philips Hue ligh
 
 # Architecture
 
-
 ```mermaid
-graph TD
-  A["User (Browser)"] -->|1. Clicks 'Enter'| B["Flask Frontend (App Engine)"]
-  B -->|2a. Enqueues /set-color| C["Cloud Tasks Queue"]
-  B -->|2b. Requests /camera/snapshot| D["Cloudflare Edge → Tunnel to Home Network"]
-  C -->|3. Dispatches task| E["Cloudflare Edge → Argo Tunnel"]
-  E -->|4a. POST /set-color| F["FastAPI Backend (uvicorn)"]
-  D -->|4b. GET /camera/snapshot| F
-  F -->|Updates Hue Bridge| G["Hue Light State"]
-  F -->|Returns JPEG Frame| H["OpenCV Camera Reader"]
+flowchart TD
+    A["User (Browser)"] 
+    B["Flask Frontend<br>(App Engine)"]
+    T["Cloud Tasks<br>Queue"]
+    CFE["Cloudflare Edge →<br>Tunnel to Home Network"]
+    CFA["Cloudflare Edge →<br>Argo Tunnel"]
+    F["FastAPI Backend<br>(uvicorn)"]
+    H["Hue Light State"]
+    O["OpenCV Camera Reader"]
+
+    A -->|1. Clicks “Enter”| B
+    B -->|2a. Enqueues `/set-color`| T
+    B -->|2b. Requests `/camera/snapshot`| CFE
+
+    T -->|3. Dispatches task| CFA
+    CFA -->|4a. POST `/set-color`| F
+    CFE -->|4b. GET `/camera/snapshot`| F
+
+    F -->|Updates Hue Bridge| H
+    F -->|Returns JPEG Frame| O
 ```
 
 ⸻
