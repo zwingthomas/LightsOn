@@ -1,6 +1,30 @@
-# [LightsOn](https://lightson-460317.uc.r.appspot.com/)
+<h1 align="center">💡 <a href="https://lightson-460317.uc.r.appspot.com/">LightsOn</a></h1>
 
-LightsOn is a simple web app that lets you pick colors for your Philips Hue lights and view a live webcam snapshot, all in real time. The frontend is built with Flask + JavaScript, and the backend is a FastAPI service running on uvicorn inside Docker. Cloudflare Tunnel (Argo Tunnel) forwards requests from your public domain to your local machine.
+<p align="center">
+  <a href="https://flask.palletsprojects.com/">
+    <img src="https://img.shields.io/badge/Flask-000000?style=for-the-badge&logo=flask&logoColor=white" alt="Flask">
+  </a>
+  <a href="https://cloud.google.com/">
+    <img src="https://img.shields.io/badge/GCP-4285F4?style=for-the-badge&logo=googlecloud&logoColor=white" alt="GCP">
+  </a>
+  <a href="https://cloudflare.com/">
+    <img src="https://img.shields.io/badge/Cloudflare-F38020?style=for-the-badge&logo=cloudflare&logoColor=white" alt="Cloudflare">
+  </a>
+  <a href="https://cloud.google.com/appengine">
+    <img src="https://img.shields.io/badge/App%20Engine-4285F4?style=for-the-badge&logo=googleappengine&logoColor=white" alt="App Engine">
+  </a>
+  <a href="https://fastapi.tiangolo.com/">
+    <img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI">
+  </a>
+  <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript">
+    <img src="https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black" alt="JavaScript">
+  </a>
+  <a href="https://developer.mozilla.org/en-US/docs/Web/HTML">
+    <img src="https://img.shields.io/badge/HTML5-E34F26?style=for-the-badge&logo=html5&logoColor=white" alt="HTML5">
+  </a>
+</p>
+
+LightsOn is a simple web app that lets you pick colors for your Philips Hue lights and view a live webcam snapshot, all in real time. The frontend is built with Python (Flask) + JavaScript, and the backend is a Python FastAPI service running on uvicorn inside Docker. Cloudflare Tunnel forwards requests from your public domain to your local machine.
 
 
 ⸻
