@@ -38,12 +38,12 @@ flowchart TD
     O["OpenCV Camera Reader"]
 
     A -->|1. Clicks “Enter”| B
-    B -->|2a. Enqueues `/set-color`| T
-    B -->|2b. Requests `/camera/snapshot`| CFE
+    B -->|2a. Enqueues "/set-color"| T
+    B -->|2b. Requests "/camera/snapshot"| CFE
 
     T -->|3. Dispatches task| CFA
-    CFA -->|4a. POST `/set-color`| F
-    CFE -->|4b. GET `/camera/snapshot`| F
+    CFA -->|4a. POST "/set-color"| F
+    CFE -->|4b. GET "/camera/snapshot"| F
 
     F -->|Updates Hue Bridge| H
     F -->|Returns JPEG Frame| O
