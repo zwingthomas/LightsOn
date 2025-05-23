@@ -26,8 +26,6 @@ LightsOn is a simple web app that lets you pick colors for your Philips Hue ligh
 
 # Architecture
 
-<details>
-<summary>Click to expand diagram</summary>
 ```mermaid
 graph TD
   A[User (Browser)] 
@@ -43,7 +41,6 @@ graph TD
 
   F -->|Updates Hue Bridge| G[Hue Light State]
   F -->|Returns JPEG Frame| H[OpenCV Camera Reader]
-</details>
 
 ⸻
 
