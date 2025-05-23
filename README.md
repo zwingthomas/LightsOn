@@ -68,12 +68,12 @@ flowchart TD
 ### Create a .env file in backend/ with:
 
 ``` bash
-WEBCAM=_/dev/videoN-(N-is-index-for-OpenCV-default-is-0)_
-HUE_BRIDGE_IP=_On-your-local-network_
-HUE_USERNAME=_your-hue-username_
-HUE_LIGHT_IDS=_steps-below_
-SERVICE_URL=_cloudflare-dns_
-TASK_SERVICE_ACCOUNT_EMAIL=_your-service-account-email-for-gcp-queue_
+WEBCAM=                     /dev/videoN-(N-is-index-for-OpenCV-default-is-0)
+HUE_BRIDGE_IP=              steps-below
+HUE_USERNAME=               steps-below
+HUE_LIGHT_IDS=              steps-below
+SERVICE_URL=                cloudflare-dns
+TASK_SERVICE_ACCOUNT_EMAIL= your-service-account-email-for-gcp-queue
 ```
 
 In LightsOn/main.py, set (skip if creating later) your Google Cloud project:
