@@ -16,16 +16,15 @@ import threading
 
 load_dotenv()
 
-# Shared state
-cap = None
-latest_frame = None
-frame_lock = threading.Lock()
-open_time = 0.0
+import logging
+logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(asctime)s %(levelname)s: %(message)s")
+logger = logging.getLogger(__name__)
+logger.warning("Logger is running")
 
-# Simon Says
-current_sequence: list[str] = []   # ["red", "green", "blue", "yellow"]
-_game_lock        = asyncio.Lock() # protects current_sequence / light playback
-_round_playing    = False          # True while LEDs are cycling the pattern
+# Shared state
+open_time = 0.0
 
 # -----------------------------------------------------------------------------
 # Pydantic Model
@@ -152,10 +151,6 @@ def frame_reader(source: int):
                 print("[frame_reader] cannot open /dev/video0")
                 time.sleep(2)
                 continue
-            # Remove if you have a nicer webcam
-            cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
-            cap.set(cv2.CAP_PROP_EXPOSURE, 0.04)
-            cap.set(cv2.CAP_PROP_GAIN, 0)
         # Read one frame
         ret, frame = cap.read()
         if ret and frame is not None:
@@ -165,9 +160,10 @@ def frame_reader(source: int):
             print("[frame_reader] read failed, will retry reopen")
             cap.release()
             cap = None
+            time.sleep(0.5)
 
-        # Throttle loop (~30 FPS max)
-        time.sleep(0.03)
+        # Throttle loop (~1 FPS max)
+        time.sleep(1)
 
 
 
@@ -179,7 +175,8 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://lightson-460317.uc.r.appspot.com/"],
+    allow_origins=["https://lightson-460317.uc.r.appspot.com",
+                   "https://zwingerbackend.com"],
     allow_methods=["GET","POST"],
     allow_headers=["*"],
 )
@@ -218,73 +215,14 @@ async def set_color(payload: ColorPayload, request: Request):
 def camera_snapshot():
     with frame_lock:
         frame = latest_frame.copy() if latest_frame is not None else None
-
     if frame is None:
+        logger.warning("503: No frame available yet")    
         raise HTTPException(503, "No frame available yet")
-
-    ok, jpeg = cv2.imencode(".jpg", frame)
+    
+    ok, jpeg = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 75])
+    
     if not ok:
-        print("[snapshot] JPEG encoding failed")
+        logger.error("[snapshot] JPEG encoding failed")
         raise HTTPException(500, "Encoding error")
 
-    return Response(content=jpeg.tobytes(), media_type="image/jpeg")
-
-@app.get("/simon/round")
-async def simon_round():
-    """
-    1) If no game yet, start with one random color.
-    2) Kick off background task to play the pattern (if not already playing).
-    3) Return `{"length": N}` for the front-end timer logic.
-    """
-    global current_sequence
-
-    async with _game_lock:
-        if not current_sequence:                      # new game
-            COLOR_HEX = {
-                "red":    "#ff0000",
-                "blue":   "#0000ff",
-                "green":  "#00ff00",
-                "yellow": "#ffff00",
-            }
-            current_sequence = [random.choice(list(COLOR_HEX))]
-        length = len(current_sequence)
-        # Launch player if idle
-        if not _round_playing:
-            asyncio.create_task(_play_sequence())
-
-    return {"length": length}
-
-
-@app.post("/simon/check")
-async def check_sequence(submission: SequenceSubmission):
-    """
-    Compare player’s input against the authoritative sequence.
-    * On success: flash green, extend the sequence, schedule next playback.
-    * On failure: flash red, reset to a new single-color sequence.
-    """
-    global current_sequence
-
-    async with _game_lock:
-        correct = submission.sequence == current_sequence
-
-    if correct:
-        await _flash("green")
-        async with _game_lock:
-            # add ONE new random color (could duplicate last – classic Simon)
-            current_sequence.append(random.choice(list(COLOR_HEX)))
-            # queue the next round playback
-            if not _round_playing:
-                asyncio.create_task(_play_sequence())
-    else:
-        await _flash("red")
-        async with _game_lock:
-            # fresh game with single random color
-            current_sequence = [random.choice(list(COLOR_HEX))]
-            if not _round_playing:
-                asyncio.create_task(_play_sequence())
-
-    return {"correct": correct}
-
-
-
-    
+    return Response(content=jpeg.tobytes(), media_type="image/jpeg", headers={"Connection": "close"})

@@ -22,12 +22,46 @@
     Enter
   </button>
 
-  <!-- Live camera snapshot -->
   <div class="mt-8 w-full max-w-md">
-    <h2 class="text-xl font-semibold mb-2">Live Preview</h2>
-    <img id="cam" class="w-full rounded shadow-lg"
-         src="/camera/snapshot" alt="Camera snapshot" />
-  </div>
+  <img id="cam"
+       class="w-full rounded shadow-lg"
+       src="/static/placeholder.jpg"
+       alt="Camera snapshot">
+</div>
+<script>
+  const cam    = document.getElementById('cam');
+  let interval = null;                  // so you can stop/restart later
+
+  async function refreshSnapshot() {
+    try {
+      // bust browser cache so you don’t get an old JPEG
+      const resp = await fetch('/camera/snapshot?ts=' + Date.now(), {
+        cache: 'no-store'               // Chrome sometimes ignores query-string, so add this
+      });
+      if (!resp.ok) throw new Error(resp.status + ' ' + resp.statusText);
+
+      const blob = await resp.blob();
+      const url  = URL.createObjectURL(blob);   // create a blob URL
+
+      // when the new image finishes loading, revoke the old URL
+      const oldURL = cam.dataset.url;          // undefined on first run
+      cam.onload = () => {
+        if (oldURL) URL.revokeObjectURL(oldURL);
+        cam.dataset.url = url;                 // remember current blob URL
+      };
+
+      cam.src = url;                           // 🚀 only set if fetch succeeded
+    } catch (err) {
+      console.warn('snapshot fetch failed:', err);
+      /* Do nothing → <img> keeps showing the previous good frame */
+    }
+  }
+
+  // start polling every 2 s once the page is ready
+  interval = setInterval(refreshSnapshot, 2000);
+  refreshSnapshot();                           // grab the very first frame right away
+  </script>
+
 
   <script>
     // Color wheel setup
@@ -63,122 +97,7 @@
         }, 2000);
       }
     });
-
-    // Refresh camera snapshot every second
-    setInterval(() => {
-      const img = document.getElementById("cam");
-      img.src = `/camera/snapshot?${Date.now()}`;
-    }, 1000);
   </script>
-
-  <div id="simon-section" class="mt-8">
-    <button id="start-simon" class="bg-yellow-500 px-4 py-2 rounded text-white">Start Simon Says</button>
-    <div id="queue-controls" class="hidden">
-      <input type="text" id="player-name" placeholder="Enter name" class="border p-2" />
-      <button id="queue-btn" class="bg-green-600 px-4 py-2 text-white rounded">Queue Up</button>
-    </div>
-    <div id="simon-game" class="hidden">
-      <!-- ==== SIMON SAYS BOARD ==== -->
-      <style>
-        #simon-board {
-          position: relative; width: 300px; height: 300px;
-          border-radius: 50%; overflow: hidden;
-        }
-        .simon-btn {position:absolute;width:50%;height:50%;opacity:.9;cursor:pointer;transition:opacity .2s}
-        .simon-btn:hover{opacity:1}
-        #red    {background:red;    top:0;    left:0;    border-top-left-radius:100%}
-        #blue   {background:blue;   top:0;    right:0;   border-top-right-radius:100%}
-        #yellow {background:yellow; bottom:0; right:0;   border-bottom-right-radius:100%}
-        #green  {background:green;  bottom:0; left:0;    border-bottom-left-radius:100%}
-      </style>
-
-      <h2 class="text-xl font-semibold mt-8">Simon Says</h2>
-      <div id="simon-board" class="mx-auto">
-        <div id="red"    class="simon-btn" data-color="red"></div>
-        <div id="blue"   class="simon-btn" data-color="blue"></div>
-        <div id="yellow" class="simon-btn" data-color="yellow"></div>
-        <div id="green"  class="simon-btn" data-color="green"></div>
-      </div>
-      
-      <div id="simon-board" class="mx-auto my-4">
-        <div id="red" class="simon-btn" data-color="red"></div>
-        <div id="blue" class="simon-btn" data-color="blue"></div>
-        <div id="yellow" class="simon-btn" data-color="yellow"></div>
-        <div id="green" class="simon-btn" data-color="green"></div>
-      </div>
-
-      <script>
-        /* -------- Simon-Says state -------- */
-        let expectedLen   = 0;        // fetched from server each round
-        let inputSeq      = [];
-        let idleTimer     = null;
-        const IDLE_LIMIT  = 5000;     // 5-second timeout
-        
-        /* ask Flask → FastAPI how long this round is */
-        async function refreshRoundLength() {
-          const res  = await fetch("/simon/round");
-          const json = await res.json();
-          expectedLen = json.length || 0;
-          inputSeq = [];
-          resetIdleTimer();
-        }
-        
-        /* send the user’s sequence to Flask → FastAPI for checking */
-        async function validateSequence() {
-          try {
-            const res  = await fetch("/simon/submit", {
-              method:"POST",
-              headers:{"Content-Type":"application/json"},
-              body:JSON.stringify({sequence: inputSeq})
-            });
-            const {correct} = await res.json();
-            alert(correct ? "✅  Correct!" : "❌  Wrong sequence!");
-          } catch {
-            alert("Server error – try again.");
-          } finally {
-            await refreshRoundLength();   // prepare next round
-          }
-        }
-        
-        /* called every click */
-        function handleSimonClick(color) {
-          inputSeq.push(color);
-        
-          if (inputSeq.length > expectedLen) {
-            alert("❌  Too many inputs!");
-            refreshRoundLength();
-            return;
-          }
-        
-          resetIdleTimer();
-        
-          /* finished exactly on time → check with server */
-          if (inputSeq.length === expectedLen) {
-            validateSequence();
-          }
-        }
-        
-        function resetIdleTimer() {
-          clearTimeout(idleTimer);
-          idleTimer = setTimeout(() => {
-            if (inputSeq.length < expectedLen) {
-              alert("❌  Too slow!");
-              refreshRoundLength();
-            }
-          }, IDLE_LIMIT);
-        }
-        
-        /* attach listeners */
-        document.querySelectorAll(".simon-btn").forEach(btn=>{
-          btn.addEventListener("click",()=>handleSimonClick(btn.dataset.color));
-        });
-        
-        /* kick off the first round */
-        refreshRoundLength();
-      </script>
-    </div>
-    <div id="viewer-notice" class="hidden text-gray-600 mt-4">Game in progress. You're in viewer mode.</div>
-  </div>
 
 </body>
 </html>

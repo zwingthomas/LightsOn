@@ -1,4 +1,5 @@
 import os, json
+import time, logging
 import requests
 from flask import Flask, request, Response, jsonify, render_template, abort
 from google.cloud import tasks_v2
@@ -48,59 +49,21 @@ def camera_snapshot():
     """
     Proxy a JPEG snapshot from the FastAPI worker.
     """
+    t0 = time.perf_counter()
     try:
         # hit the FastAPI /camera/snapshot endpoint
-        resp = requests.get(TARGET + "/camera/snapshot", timeout=5)
+        resp = requests.get(TARGET + "/camera/snapshot", 
+                            timeout=5, 
+                            headers={"Connection": "close"})
         resp.raise_for_status()
     except requests.RequestException as e:
-        app.logger.error(f"Error fetching camera snapshot: {e}")
+        app.logger.error(f"Error fetching camera snapshot after %.2f s: {e}", time.perf_counter()-t0)
         # return 502 Bad Gateway so the frontend knows it wasn't your app’s fault
         return ("", 502)
 
     # mirror the content-type header (should be image/jpeg)
-    content_type = resp.headers.get("Content-Type", "image/jpeg")
+    content_type = resp.headers.get("Content-Type", "image/jpg")
     return Response(resp.content, mimetype=content_type)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
-
-
-# SIMON SAYS ROUTES
-
-@app.post("/simon/submit")
-def simon_submit():
-    """
-    Proxy the player's color sequence to the FastAPI worker
-    and return whether it matches the current round.
-    """
-    data = request.get_json(force=True, silent=True) or {}
-    seq  = data.get("sequence")
-    if not isinstance(seq, list):
-        return {"error": "sequence must be a list"}, 400
-
-    try:
-        resp = requests.post(TARGET + "/simon/check",
-                             json={"sequence": seq},
-                             timeout=5)
-        resp.raise_for_status()
-    except requests.RequestException as e:
-        app.logger.error(f"Error validating sequence: {e}")
-        return {"error": "backend unreachable"}, 502
-
-    return resp.json(), resp.status_code
-
-
-@app.get("/simon/round")
-def simon_round():
-    """
-    Ask the FastAPI worker how many colors are in the current round.
-    Returns: {"length": <int>}
-    """
-    try:
-        resp = requests.get(TARGET + "/simon/round", timeout=5)
-        resp.raise_for_status()
-    except requests.RequestException as e:
-        app.logger.error(f"Error fetching round info: {e}")
-        return {"error": "backend unreachable"}, 502
-
-    return resp.json(), resp.status_code
