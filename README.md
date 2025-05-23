@@ -32,7 +32,6 @@ flowchart TD
     B["Flask Frontend<br>(App Engine)"]
     T["Cloud Tasks<br>Queue"]
     CFE["Cloudflare Edge →<br>Tunnel to Home Network"]
-    CFA["Cloudflare Edge →<br>Argo Tunnel"]
     F["FastAPI Backend<br>(uvicorn)"]
     H["Hue Light State"]
     O["OpenCV Camera Reader"]
@@ -41,8 +40,8 @@ flowchart TD
     B -->|2a. Enqueues '/set-color'| T
     B -->|2b. Requests '/camera/snapshot'| CFE
 
-    T -->|3a. Dispatches task| CFA
-    CFA -->|4a. POST '/set-color'| F
+    T -->|3a. Dispatches task| CFE
+    CFE -->|4a. POST '/set-color'| F
     CFE -->|4b. GET '/camera/snapshot'| F
 
     F -->|Updates Hue Bridge| H
