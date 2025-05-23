@@ -16,11 +16,12 @@ LightsOn is a simple web app that lets you pick colors for your Philips Hue ligh
 
 # Features
 ### 🔆 Pick any color via an interactive color wheel
-### ⏱️ Color change commands are enqueued via Google Cloud Tasks and dispatched securely to Cloudflare Edge
+### ⏱️ Color change commands are enqueued via Google Cloud Tasks
 ### 💡 Send color changes to your Philips Hue bridge via FastAPI
 ### 📸 View live webcam snapshots polled every 2 s
 ### ⚡ Fast, asynchronous backend with FastAPI & uvicorn
 ### 🐳 Containerized backend for easy deployment
+#### Only able to edit the colors of hue and access a webcam locally for security. Thus the backend must be run locally.
 
 ⸻
 
