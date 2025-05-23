@@ -37,11 +37,11 @@ flowchart TD
     H["Hue Light State"]
     O["OpenCV Camera Reader"]
 
-    A -->|1. Clicks 'Enter'| B
+    A -->|1a. Clicks 'Enter'| B
     B -->|2a. Enqueues '/set-color'| T
     B -->|2b. Requests '/camera/snapshot'| CFE
 
-    T -->|3. Dispatches task| CFA
+    T -->|3a. Dispatches task| CFA
     CFA -->|4a. POST '/set-color'| F
     CFE -->|4b. GET '/camera/snapshot'| F
 
