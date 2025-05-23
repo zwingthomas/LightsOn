@@ -64,7 +64,7 @@ async def verify_cloud_task(request: Request) -> None:
         id_info = id_token.verify_oauth2_token(
             jwt,
             grequests.Request(),
-            audience=os.environ["CLOUD_RUN_SERVICE_URL"]
+            audience=os.environ["SERVICE_URL"]
         )
     except ValueError:
         raise HTTPException(403, "Invalid OIDC token")
