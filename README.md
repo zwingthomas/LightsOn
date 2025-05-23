@@ -21,7 +21,8 @@ LightsOn is a simple web app that lets you pick colors for your Philips Hue ligh
 ### 📸 View live webcam snapshots polled every 2 s
 ### ⚡ Fast, asynchronous backend with FastAPI & uvicorn
 ### 🐳 Containerized backend for easy deployment
-#### Only able to edit the colors of hue and access a webcam locally for security. Thus the backend must be run locally.
+#### Only able to edit the colors of hue and access a webcam locally for security. 
+#### Thus the backend must be run locally.
 
 ⸻
 
