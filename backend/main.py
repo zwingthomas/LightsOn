@@ -156,24 +156,34 @@ def startup_event():
     thread = threading.Thread(target=frame_reader, args=(device,), daemon=True)
     thread.start()
 
+# Update both lights simultaneously
+async_client = httpx.AsyncClient(timeout=2.0)
+
 @app.post("/set-color")
 async def set_color(payload: ColorPayload, request: Request):
-
     await verify_cloud_task(request)
 
-    # convert hex → xy
+    # hex → xy
     r, g, b = hex_to_rgb(payload.color.lstrip("#"))
-    x, y = rgb_to_xy(r, g, b)
+    x, y     = rgb_to_xy(r, g, b)
+    body     = {"on": True, "bri": 254, "xy": [x, y]}
 
-    body = {"on": True, "bri": 127, "xy": [x, y]}
+    # create tasks for changing lights
+    tasks = []
+    for lid in os.environ["HUE_LIGHT_IDS"].split(","):
+        url = f"http://{os.environ['HUE_BRIDGE_IP']}/api/{os.environ['HUE_USERNAME']}/lights/{lid}/state"
+        tasks.append(async_client.put(url, json=body))
 
-    async with httpx.AsyncClient(timeout=5.0) as client:
-        for lid in os.environ["HUE_LIGHT_IDS"].split(","):
-            url = f"http://{os.environ['HUE_BRIDGE_IP']}/api/{os.environ['HUE_USERNAME']}/lights/{lid}/state"
-            resp = await client.put(url, json=body)
-            resp.raise_for_status()
+    # send requests at the same time
+    results = await asyncio.gather(*tasks, return_exceptions=True)
 
-    return {"status": "ok", "color": payload.color, "updated": {os.environ['HUE_LIGHT_IDS']}}
+    for res in results:
+        if isinstance(res, Exception):
+            logger.error("Hue error: %s", res)
+            raise HTTPException(502, "Failed to update one or more lights")
+        res.raise_for_status()
+
+    return {"status":"ok","color":payload.color}
 
 @app.get("/camera/snapshot")
 def camera_snapshot():
