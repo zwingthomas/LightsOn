@@ -28,8 +28,10 @@ LightsOn is a simple web app that lets you pick colors for your Philips Hue ligh
 
 <details>
 <summary>Click to expand diagram</summary>
-```graph TD
-  A[User (Browser)] -->|1. Clicks 'Enter'| B[Flask Frontend (App Engine)]
+```mermaid
+graph TD
+  A[User (Browser)] 
+  A -->|1. Clicks 'Enter'| B[Flask Frontend (App Engine)]
 
   B -->|2a. Enqueues /set-color| C[Cloud Tasks Queue]
   B -->|2b. Requests /camera/snapshot| E[Cloudflare Edge → Tunnel to Home Network]
