@@ -22,7 +22,8 @@
   <a href="https://developer.mozilla.org/en-US/docs/Web/HTML">
     <img src="https://img.shields.io/badge/HTML5-E34F26?style=for-the-badge&logo=html5&logoColor=white" alt="HTML5">
   </a>
-  LightsOn is a simple web app that lets you pick colors for your Philips Hue lights and view a live webcam snapshot, all in real time. The frontend is built with Python (Flask) + JavaScript, and the backend is a Python FastAPI service running on uvicorn inside Docker. Cloudflare Tunnel forwards requests from your public domain to your local machine.
+  <br/>
+  <p>LightsOn is a simple web app that lets you pick colors for your Philips Hue lights and view a live webcam snapshot, all in real time. The frontend is built with Python (Flask) + JavaScript, and the backend is a Python FastAPI service running on uvicorn inside Docker. Cloudflare Tunnel forwards requests from your public domain to your local machine.</p>
 </p>
 
 
