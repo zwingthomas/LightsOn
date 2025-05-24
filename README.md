@@ -1,4 +1,4 @@
-<h1 align="center">💡 <a href="https://lightson-460317.uc.r.appspot.com/">LightsOn</a></h1>
+<h1 align="center">💡 <a href="https://lightson-460317.uc.r.appspot.com/">LightsOn</a> 💡</h1>
 
 <p align="center">
   <a href="https://cloud.google.com/">
