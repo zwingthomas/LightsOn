@@ -45,8 +45,7 @@
 ### ⚡ Fast, asynchronous backend with FastAPI & uvicorn
 ### 🐳 Containerized backend for easy deployment
 #### 
-#### Only able to edit the colors of hue and access a webcam locally to accomodate security. 
-#### Thus the backend must be run locally.
+#### Only able to edit the colors of hue and access a webcam locally to accomodate security.
 
 ⸻
 
