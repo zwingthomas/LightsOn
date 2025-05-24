@@ -1,17 +1,17 @@
 <h1 align="center">💡 <a href="https://lightson-460317.uc.r.appspot.com/">LightsOn</a></h1>
 
 <p align="center">
-  <a href="https://flask.palletsprojects.com/">
-    <img src="https://img.shields.io/badge/Flask-000000?style=for-the-badge&logo=flask&logoColor=white" alt="Flask">
-  </a>
   <a href="https://cloud.google.com/">
     <img src="https://img.shields.io/badge/GCP-4285F4?style=for-the-badge&logo=googlecloud&logoColor=white" alt="GCP">
+  </a>
+  <a href="https://cloud.google.com/appengine">
+    <img src="https://img.shields.io/badge/App%20Engine-4285F4?style=for-the-badge&logo=googleappengine&logoColor=white" alt="App Engine">
   </a>
   <a href="https://cloudflare.com/">
     <img src="https://img.shields.io/badge/Cloudflare-F38020?style=for-the-badge&logo=cloudflare&logoColor=white" alt="Cloudflare">
   </a>
-  <a href="https://cloud.google.com/appengine">
-    <img src="https://img.shields.io/badge/App%20Engine-4285F4?style=for-the-badge&logo=googleappengine&logoColor=white" alt="App Engine">
+  <a href="https://flask.palletsprojects.com/">
+    <img src="https://img.shields.io/badge/Flask-000000?style=for-the-badge&logo=flask&logoColor=white" alt="Flask">
   </a>
   <a href="https://fastapi.tiangolo.com/">
     <img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI">
