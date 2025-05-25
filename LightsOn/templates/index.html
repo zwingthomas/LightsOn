@@ -1,103 +1,70 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Room Light & Camera</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@jaames/iro@5"></script>
-</head>
-<body class="bg-gray-50 flex flex-col items-center justify-center min-h-screen p-4">
-  <h1 class="text-2xl font-bold mb-6">Pick a Color & Watch It</h1>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Room Light & Camera</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@jaames/iro@5"></script>
+  </head>
+  <body class="bg-gray-50 flex flex-col items-center justify-center min-h-screen p-4">
+    <h1 class="text-2xl font-bold mb-6">Pick a Color & Watch It</h1>
 
-  <!-- Color wheel -->
-  <div id="picker" class="mb-4"></div>
-  <div class="flex items-center mb-6 space-x-2">
-    <div id="current-color" class="w-8 h-8 rounded-full border"></div>
-    <span id="hex-value" class="font-mono text-lg"></span>
-  </div>
-  <button id="send-btn"
-    class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-    disabled>
-    Enter
-  </button>
+    <!-- Color wheel -->
+    <div id="picker" class="mb-4"></div>
+    <div class="flex items-center mb-6 space-x-2">
+      <div id="current-color" class="w-8 h-8 rounded-full border"></div>
+      <span id="hex-value" class="font-mono text-lg"></span>
+    </div>
+    <button id="send-btn"
+      class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+      disabled>
+      Enter
+    </button>
 
-  <div class="mt-8 w-full max-w-md">
-  <img id="cam"
-       class="w-full rounded shadow-lg"
-       src="/static/placeholder.jpg"
-       alt="Camera snapshot">
-</div>
-<script>
-  const cam    = document.getElementById('cam');
-  let interval = null;                  // so you can stop/restart later
+    <div class="mt-8 w-full max-w-md">
+    <img id="cam"
+        class="w-full rounded shadow-lg"
+        src="/camera/snapshot"
+        alt="Camera snapshot">
+    </div>
 
-  async function refreshSnapshot() {
-    try {
-      // bust browser cache so you don’t get an old JPEG
-      const resp = await fetch('/camera/snapshot?ts=' + Date.now(), {
-        cache: 'no-store'               // Chrome sometimes ignores query-string, so add this
+
+    <script>
+      // Color wheel setup
+      const colorPicker = new iro.ColorPicker("#picker", { width: 240 });
+      const hexDisplay = document.getElementById("hex-value");
+      const colorDot  = document.getElementById("current-color");
+      const sendBtn   = document.getElementById("send-btn");
+
+      colorPicker.on(["color:init","color:change"], color => {
+        hexDisplay.textContent = color.hexString;
+        colorDot.style.background = color.hexString;
+        sendBtn.disabled = false;
       });
-      if (!resp.ok) throw new Error(resp.status + ' ' + resp.statusText);
 
-      const blob = await resp.blob();
-      const url  = URL.createObjectURL(blob);   // create a blob URL
+      sendBtn.addEventListener("click", async () => {
+        sendBtn.disabled = true;
+        const hex = colorPicker.color.hexString;
+        try {
+          const res = await fetch("/enqueue-color", {
+            method: "POST",
+            headers: {"Content-Type":"application/json"},
+            body: JSON.stringify({ color: hex })
+          });
+          const json = await res.json();
+          if (json.queued) sendBtn.textContent = "Queued!";
+          else throw new Error(json.error||"Unknown");
+        } catch {
+          alert("Failed to queue color change.");
+        } finally {
+          setTimeout(() => {
+            sendBtn.textContent = "Enter";
+            sendBtn.disabled = false;
+          }, 2000);
+        }
+      });
+    </script>
 
-      // when the new image finishes loading, revoke the old URL
-      const oldURL = cam.dataset.url;          // undefined on first run
-      cam.onload = () => {
-        if (oldURL) URL.revokeObjectURL(oldURL);
-        cam.dataset.url = url;                 // remember current blob URL
-      };
-
-      cam.src = url;                           // 🚀 only set if fetch succeeded
-    } catch (err) {
-      console.warn('snapshot fetch failed:', err);
-      /* Do nothing → <img> keeps showing the previous good frame */
-    }
-  }
-
-  // start polling every 2 s once the page is ready
-  interval = setInterval(refreshSnapshot, 2000);
-  refreshSnapshot();                           // grab the very first frame right away
-  </script>
-
-
-  <script>
-    // Color wheel setup
-    const colorPicker = new iro.ColorPicker("#picker", { width: 240 });
-    const hexDisplay = document.getElementById("hex-value");
-    const colorDot  = document.getElementById("current-color");
-    const sendBtn   = document.getElementById("send-btn");
-
-    colorPicker.on(["color:init","color:change"], color => {
-      hexDisplay.textContent = color.hexString;
-      colorDot.style.background = color.hexString;
-      sendBtn.disabled = false;
-    });
-
-    sendBtn.addEventListener("click", async () => {
-      sendBtn.disabled = true;
-      const hex = colorPicker.color.hexString;
-      try {
-        const res = await fetch("/enqueue-color", {
-          method: "POST",
-          headers: {"Content-Type":"application/json"},
-          body: JSON.stringify({ color: hex })
-        });
-        const json = await res.json();
-        if (json.queued) sendBtn.textContent = "Queued!";
-        else throw new Error(json.error||"Unknown");
-      } catch {
-        alert("Failed to queue color change.");
-      } finally {
-        setTimeout(() => {
-          sendBtn.textContent = "Enter";
-          sendBtn.disabled = false;
-        }, 2000);
-      }
-    });
-  </script>
-
-</body>
+  </body>
 </html>

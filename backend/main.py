@@ -2,7 +2,6 @@ import os
 import cv2
 import time
 import threading
-import random
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
@@ -36,12 +35,6 @@ class ColorPayload(BaseModel):
         pattern=r'^(#(?:[0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})|[a-z]+)$'
     )
 
-class RTSPToggle(BaseModel):
-    enabled: bool
-
-class SequenceSubmission(BaseModel):
-    sequence: list[str]
-
 # -----------------------------------------------------------------------------
 # Helpers: token verification & color conversion
 # -----------------------------------------------------------------------------
@@ -51,14 +44,17 @@ async def verify_cloud_task(request: Request) -> None:
     Verifies the incoming OIDC JWT came from our Cloud Tasks queue/SA.
     Raises HTTPException(403) on failure.
     """
+    # Check for Authorization header
     header = request.headers.get("Authorization")
     if not header:
         raise HTTPException(403, "Missing Authorization header")
 
+    # Check that Bearer token exists
     parts = header.split(" ")
     if len(parts) != 2 or parts[0] != "Bearer":
         raise HTTPException(403, "Malformed Authorization header")
 
+    # Verify token
     jwt = parts[1]
     try:
         id_info = id_token.verify_oauth2_token(
@@ -69,11 +65,12 @@ async def verify_cloud_task(request: Request) -> None:
     except ValueError:
         raise HTTPException(403, "Invalid OIDC token")
 
+    # Check that only the allowed task service account made this request
     if id_info.get("email") != os.environ["TASK_SERVICE_ACCOUNT_EMAIL"]:
         raise HTTPException(403, "Unauthorized caller")
 
 def hex_to_rgb(hexstr: str) -> tuple[float,float,float]:
-    """Convert “#RRGGBB” → (r, g, b) in [0,1]"""
+    # Convert “#RRGGBB” → (r, g, b) numbers betweeen 0 and 1
     h = hexstr.lstrip("#")
     r = int(h[0:2], 16) / 255.0
     g = int(h[2:4], 16) / 255.0
@@ -84,6 +81,8 @@ def rgb_to_xy(r: float, g: float, b: float) -> tuple[float,float]:
     """
     Convert linearized sRGB → CIE 1931 xy
     (per Philips Hue color math documentation).
+    https://stackoverflow.com/questions/20854825/how-do-i-convert-an-rgb-value-to-a-xy-value-for-the-phillips-hue-bulb
+    https://github.com/benknight/hue-python-rgb-converter/blob/master/rgbxy/__init__.py
     """
     # Gamma correction
     def gamma(v):
@@ -93,11 +92,12 @@ def rgb_to_xy(r: float, g: float, b: float) -> tuple[float,float]:
     g_lin = gamma(g)
     b_lin = gamma(b)
 
-    # Convert to XYZ
+    # Convert to XYZ (changed to help with camera saturation)
     X = r_lin * 0.4124 + g_lin * 0.3576 + b_lin * 0.1805
     Y = r_lin * 0.2126 + g_lin * 0.7152 + b_lin * 0.0722
     Z = r_lin * 0.0193 + g_lin * 0.1192 + b_lin * 0.9505
 
+    # Normalize to XY
     total = X + Y + Z
     if total == 0:
         return 0.0, 0.0
@@ -110,6 +110,7 @@ def frame_reader(source: int):
     while True:
         # Open camera feed if feed is closed or broken
         if cap is None or not cap.isOpened():
+            # Begin feed
             cap = cv2.VideoCapture(source, cv2.CAP_V4L2)
             if not cap.isOpened():
                 print("[frame_reader] cannot open /dev/video0")
@@ -119,6 +120,7 @@ def frame_reader(source: int):
         ret, frame = cap.read()
         if ret and frame is not None:
             with frame_lock:
+                # Update global (accessed in endpoint)
                 latest_frame = frame.copy()
         else:
             print("[frame_reader] read failed, will retry reopen")
