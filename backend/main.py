@@ -168,7 +168,7 @@ async def set_color(payload: ColorPayload, request: Request):
     # hex → xy
     r, g, b = hex_to_rgb(payload.color.lstrip("#"))
     x, y     = rgb_to_xy(r, g, b)
-    body     = {"on": True, "bri": 254, "xy": [x, y]}
+    body     = {"on": True, "bri": 254, "xy": [x, y]} # Full brightness
 
     # create tasks for changing lights
     tasks = []
@@ -189,20 +189,24 @@ async def set_color(payload: ColorPayload, request: Request):
 
 @app.get("/camera/snapshot")
 def camera_snapshot():
+    # Grab latest frame
     with frame_lock:
         frame = latest_frame.copy() if latest_frame is not None else None
     if frame is None:
         logger.warning("503: No frame available yet")    
         raise HTTPException(503, "No frame available yet")
     
+    # Saturate it to show color better
     ok, jpeg = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 75])
     
     if not ok:
         logger.error("[snapshot] JPEG encoding failed")
         raise HTTPException(500, "Encoding error")
 
+    # Return latest frame
     return Response(content=jpeg.tobytes(), media_type="image/jpeg", headers={"Connection": "close"})
 
+# Testing and SRE endpoint
 @app.get("/health")
 def health():
     return {"ok": True}

@@ -12,7 +12,7 @@ QUEUE    = "color-changes"
 LOCATION = "us-central1"
 TARGET   = "https://zwingerbackend.com"
 
-# set up Cloud Tasks client
+# Set up Cloud Tasks client
 client, _ = google_auth_default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
 tasks = tasks_v2.CloudTasksClient(credentials=client)
 
@@ -51,18 +51,17 @@ def camera_snapshot():
     """
     t0 = time.perf_counter()
     try:
-        # hit the FastAPI /camera/snapshot endpoint
+        # Hit the FastAPI /camera/snapshot endpoint
         resp = requests.get(TARGET + "/camera/snapshot", 
                             timeout=5, 
                             headers={"Connection": "close"})
         resp.raise_for_status()
     except requests.RequestException as e:
         app.logger.error(f"Error fetching camera snapshot after %.2f s: {e}", time.perf_counter()-t0)
-        # return 502 Bad Gateway so the frontend knows it wasn't your app’s fault
+        # Return 502 Bad Gateway signalling error from backend
         return ("", 502)
 
-    # mirror the content-type header (should be image/jpeg)
-    content_type = resp.headers.get("Content-Type", "image/jpg")
+    content_type = resp.headers.get("Content-Type", "image/jpeg")
     return Response(resp.content, mimetype=content_type)
 
 if __name__ == "__main__":
