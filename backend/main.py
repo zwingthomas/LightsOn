@@ -142,6 +142,7 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://lightson-460317.uc.r.appspot.com",
+                   "https://lights-on-77737783296.us-central1.run.app",
                    "https://zwingerbackend.com"],
     allow_methods=["GET","POST"],
     allow_headers=["*"],
