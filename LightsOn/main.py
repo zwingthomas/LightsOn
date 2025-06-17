@@ -7,7 +7,7 @@ from google.auth import default as google_auth_default
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
 
-PROJECT  = os.environ["GOOGLE_CLOUD_PROJECT"]
+PROJECT  = os.environ.get("GOOGLE_CLOUD_PROJECT", "lightson-460317")
 QUEUE    = "color-changes"
 LOCATION = "us-central1"
 TARGET   = "https://zwingerbackend.com"

@@ -1,0 +1,22 @@
+substitutions:
+  _PROJECT_ID: "lightson-460317"
+  _REGION: "us-central1"
+
+steps:
+  # Build & deploy LightsOn with Buildpacks
+  - name: gcr.io/cloud-builders/gcloud
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        gcloud run deploy lights-on \
+          --project=${_PROJECT_ID} \
+          --region=${_REGION} \
+          --platform=managed \
+          --source=. \
+          --allow-unauthenticated \
+          --memory=128Mi \
+          --timeout=300s \
+          --quiet
+
+timeout: "1200s"
